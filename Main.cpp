@@ -7,18 +7,18 @@
 
 using namespace std;
 
-const double ZERO = 1E-20; // ?????, ?? ?????? ?????? ZERO, ??????? ?????
-const int maxiter = 100; // ???????? ???????? ?????? ????????/????????? ???????
-int funcComp = 0; // ???-?? ?????????? ???????
+const double ZERO = 1E-20; // числа, по модулю меньше ZERO, считать нулем
+const int maxiter = 100;   // максимум итераций метода штрафных/барьерных функций
+int funcComp = 0;		   // Кол-во вычислений функции
 
-double r = 10; // ??????????? ?????? ? ??? ????????? ????????
-vector<double> xk = { -10, -10 }; // ????????? ???????????
-double epsF = 1e-7; // ???????? ?????? ????????/????????? ???????
-const double M = 1E+7; // ??????? ??????????????? ? epsF
-int flag = 1; // 1 ??? ?????????, 0 ??? ????????
+double r = 10;					// коэффициент штрафа и его начальное значение
+vector<double> xk = {-10, -10}; // начальное приближение
+double epsF = 1e-7;				// точность метода штрафных/барьерных функций
+const double M = 1E+7;			// порядок согласовывается с epsF
+int flag;						// 1 для барьерных, 0 для штрафных
 
 //-----------------------------------------------------------------------------------------------
-// ???????, ??????????????? ???????, ????????? ?????????
+// функции, вспомогательные функции, стратегия изменения
 //-----------------------------------------------------------------------------------------------
 
 double change_r(double r)
@@ -26,100 +26,100 @@ double change_r(double r)
 	return r / 1000;
 }
 
-// ???????? ???????
+// Заданная функция
 double func(double x, double y)
 {
 	funcComp++;
-	return 4 * (y - x) * (y - x) + 3 * (x - 1) * (x - 1);
+	return (x + y) * (x + y) + 4 * y * y;
 }
 
-// ?????? ? (?????????)
+// Задача б (равенство)
 double func_h(double x, double y)
 {
-	return x + 1 - y;
+	return x + 2 - y;
 }
 
-// ?????? ? (???????????)
+// Задача а (неравенство)
 double func_g(double x, double y)
 {
-	return x + y + 1;
+	return x + y - 5;
 }
 
-// ???????? ??????? ??? ?????? ?
+// Штрафные функции для задачи б
 double func_H(double x, double y)
 {
-	//return abs(func_h(x, y));
+	// return abs(func_h(x, y));
 	return func_h(x, y) * func_h(x, y);
-	//return pow(abs(func_h(x, y)), 5);
+	// return pow(abs(func_h(x, y)), 5);
 }
 
-// ???????? ??????? ??? ?????? ?
+// Штрафные функции для задачи а
 double func_G(double x, double y)
 {
 	return 0.5 * (func_g(x, y) + abs(func_g(x, y)));
-	//return 0.5 * (func_g(x, y) + abs(func_g(x, y))) * 0.5 * (func_g(x, y) + abs(func_g(x, y)));
-	//return pow(0.5 * (func_g(x, y) + abs(func_g(x, y))), 5);
+	// return 0.5 * (func_g(x, y) + abs(func_g(x, y))) * 0.5 * (func_g(x, y) + abs(func_g(x, y)));
+	// return pow(0.5 * (func_g(x, y) + abs(func_g(x, y))), 5);
 }
 
-// ????????? ???????
+// Барьерные функции
 double func_Gb(double x, double y)
 {
-	//return -1. / func_g(x, y);
+	// return -1. / func_g(x, y);
 	return -log(-func_g(x, y));
 }
 
-// ??????????????? ???????
-double GetQ(vector<double>& xk)
+// Вспомогательная функция
+double GetQ(vector<double> &xk)
 {
-	// ?????? ?
-	//return func(xk[0], xk[1]) + r * (func_G(xk[0], xk[1]));
-	// ?????? ?
+	// Задача а
+	// return func(xk[0], xk[1]) + r * (func_G(xk[0], xk[1]));
+	// Задача б
 	return func(xk[0], xk[1]) + r * (func_H(xk[0], xk[1]));
 }
 
-double GetFine(vector<double>& xk)
+double GetFine(vector<double> &xk)
 {
-	// ?????? ?
-	//return 1 * (func_G(xk[0], xk[1]));
-	// ?????? ?
-	return 1 * (func_H(xk[0], xk[1]) );
+	// Задача а
+	// return 1 * (func_G(xk[0], xk[1]));
+	// Задача б
+	return 1 * (func_H(xk[0], xk[1]));
 }
 
-double GetQb(vector<double>& xk)
+double GetQb(vector<double> &xk)
 {
 	return func(xk[0], xk[1]) + r * (func_Gb(xk[0], xk[1]));
 }
 
-double GetBarrier(vector<double>& xk)
+double GetBarrier(vector<double> &xk)
 {
 	return 1 * (func_Gb(xk[0], xk[1]));
 }
 
 //-----------------------------------------------------------------------------------------------
-// ????? ???????? ??????? ?????????????? ????????????? ?? ????????
+// поиск минимума методом деформируемого многогранника на итерации
 //-----------------------------------------------------------------------------------------------
 const int N = 2,
-MAXITER = 100;
+		  MAXITER = 100;
 const double EPS = 1E-10;
-vector<vector<double>> D; // ?????????? ?????? ?????????
+vector<vector<double>> D; // координаты вершин симплекса
 vector<double> xMiddle, xNew;
 double fMin, fMax;
 int xMin, xMax;
 double alpha = 1,
-gamma = 2.5,
-beta = 0.5;
+	   gamma = 2.5,
+	   beta1 = 0.5;
 
-int Prepare(vector<double>& x0)
+int Prepare(vector<double> &x0)
 {
 	D.resize(N + 1);
 	xMiddle.resize(N);
-	xMiddle = { 0, 0 };
+	xMiddle = {0, 0};
 	xNew.resize(N);
-	xNew = { 0, 0 };
+	xNew = {0, 0};
 
-	double t = 5; // ?????????? ????? ?????????
+	double t = 5; // расстояние между вершинами
 	double d1 = (sqrt(N + 1) + N - 1) * t / (N * sqrt(2)),
-		d2 = t / ((sqrt(N + 1) - 1) * N * sqrt(2));
+		   d2 = t / ((sqrt(N + 1) - 1) * N * sqrt(2));
 	D[0].resize(N);
 	D[0] = x0;
 	for (int i = 1; i < N + 1; i++)
@@ -144,7 +144,6 @@ int Prepare(vector<double>& x0)
 	}
 
 	return 0;
-
 }
 
 int FindMiddle()
@@ -165,7 +164,7 @@ int FindMiddle()
 double FindMinMax()
 {
 	double ftemp = flag ? GetQb(D[0]) : GetQ(D[0]),
-		fmiddle = flag ? GetQb(xMiddle) : GetQ(xMiddle);
+		   fmiddle = flag ? GetQb(xMiddle) : GetQ(xMiddle);
 	fMax = ftemp;
 	fMin = ftemp;
 	xMax = 0;
@@ -189,8 +188,7 @@ double FindMinMax()
 	return sum;
 }
 
-
-int Reflection() // ?????????
+int Reflection() // отражение
 {
 	for (int i = 0; i < N; i++)
 	{
@@ -205,11 +203,11 @@ int Reflection() // ?????????
 		{
 			xNew[i] = xMiddle[i] + koef * (xMiddle[i] - D[xMax][i]);
 		}
-	} 
+	}
 	return 0;
 }
 
-int Expansion(double fTemp) // ??????????
+int Expansion(double fTemp) // растяжение
 {
 	vector<double> xTemp(N);
 	for (int i = 0; i < N; i++)
@@ -236,21 +234,21 @@ int Expansion(double fTemp) // ??????????
 	return 0;
 }
 
-int Contraction(double fTemp) // ??????
+int Contraction(double fTemp) // сжатие
 {
 	vector<double> xTemp(N);
 	for (int i = 0; i < N; i++)
 	{
-		xTemp[i] = xMiddle[i] + beta * (D[xMax][i] - xMiddle[i]);
+		xTemp[i] = xMiddle[i] + beta1 * (D[xMax][i] - xMiddle[i]);
 	}
 
-	double koef = beta;
+	double koef = beta1;
 	while (flag && func_g(xTemp[0], xTemp[1]) > 0)
 	{
 		koef /= 2;
 		for (int i = 0; i < N; i++)
 		{
-			xTemp[i] = xMiddle[i] + beta * (D[xMax][i] - xMiddle[i]);
+			xTemp[i] = xMiddle[i] + beta1 * (D[xMax][i] - xMiddle[i]);
 		}
 	}
 
@@ -260,10 +258,9 @@ int Contraction(double fTemp) // ??????
 	else
 		D[xMax] = xNew;
 	return 0;
-
 }
 
-int Shrink() // ????????
+int Shrink() // редукция
 {
 	for (int i = 0; i < N + 1; i++)
 	{
@@ -276,10 +273,9 @@ int Shrink() // ????????
 		}
 	}
 	return 0;
-
 }
 
-int Algorithm_Polytype(vector<double>& x0)
+int Algorithm_Polytype(vector<double> &x0)
 {
 	Prepare(x0);
 	int iter;
@@ -311,7 +307,6 @@ int Algorithm_Polytype(vector<double>& x0)
 		stop = FindMinMax();
 		stop = sqrt(stop);
 		stop /= (N + 1);
-
 	}
 
 	x0 = D[xMin];
@@ -319,7 +314,7 @@ int Algorithm_Polytype(vector<double>& x0)
 }
 
 //-----------------------------------------------------------------------------------------------
-// ????? ???????? ???????
+// метод штрафных функций
 //-----------------------------------------------------------------------------------------------
 void Fine()
 {
@@ -341,15 +336,16 @@ void Fine()
 		fout << "fine=" << fine << " xk: " << xk[0] << " " << xk[1] << endl;
 	}
 
-	fout << "?????: \n" << ii << '\t' << funcComp << '\t' << func(xk[0], xk[1]) << '\t' << xk[0] << '\t' << xk[1];
+	fout << "Итого: \n"
+		 << ii << '\t' << funcComp << '\t' << func(xk[0], xk[1]) << '\t' << xk[0] << '\t' << xk[1];
 	cout << "f = " << func(xk[0], xk[1]) << endl;
 	cout << "Fine Iter: " << ii << endl;
-	// ???-?? ?????????? ???????
+	// Кол-во вычислений функции
 	cout << "func compute: " << funcComp << endl;
 }
 
 //-----------------------------------------------------------------------------------------------
-// ????? ????????? ???????
+// метод барьерных функций
 //-----------------------------------------------------------------------------------------------
 void Barrier()
 {
@@ -362,8 +358,8 @@ void Barrier()
 	int ii;
 	for (ii = 0; ii < maxiter && abs(barrier) > epsF; ii++)
 	{
-		r = change_r(r);		
-		Algorithm_Polytype(xk); //????? ????? ???????? xk
+		r = change_r(r);
+		Algorithm_Polytype(xk); //найти новое значение xk
 
 		if (abs(func_g(xk[0], xk[1])) < ZERO)
 		{
@@ -376,17 +372,22 @@ void Barrier()
 		cout << "bar=" << barrier << " xk: " << xk[0] << "\t" << xk[1] << "\t" << r << "\t" << xk[0] + xk[1] << "\t" << func(xk[0], xk[1]) << endl;
 		fout << "bar=" << barrier << " xk: " << xk[0] << "\t" << xk[1] << endl;
 	}
-	fout << "?????: \n" << ii << '\t' << funcComp << '\t' << func(xk[0], xk[1]) << '\t' << xk[0] << '\t' << xk[1];
+	fout << "Итого: \n"
+		 << ii << '\t' << funcComp << '\t' << func(xk[0], xk[1]) << '\t' << xk[0] << '\t' << xk[1];
 	cout << "f = " << func(xk[0], xk[1]) << endl;
 	cout << "Barrier Iter: " << ii << endl;
 	cout << "func compute: " << funcComp << endl;
 }
 
 //-----------------------------------------------------------------------------------------------
-// ???????? ?????????
+// основная программа
 //-----------------------------------------------------------------------------------------------
 int main()
 {
+	cout << "Select method:" << endl;
+	cout << "0 - penalty method" << endl;
+	cout << "1 - barrier method" << endl;
+	cin >> flag;
 	cout << scientific << setprecision(8);
 	if (flag == 0)
 		Fine();
